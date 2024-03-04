@@ -14,6 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+//go:build https
 // +build https
 
 package main
@@ -48,10 +49,15 @@ func NewReverseProxy(scheme, host string) *httputil.ReverseProxy {
 func Register(p *httputil.ReverseProxy) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if *verbose {
-			log.Printf("request %s%s", r.RemoteAddr, r.RequestURI)
+			log.Printf("request %s %s%s", r.Method, r.RemoteAddr, r.RequestURI)
 		}
-		// w.Header().Set("Access-Control-Allow-Origin", "*")
-		// w.Header().Set("Access-Control-Allow-Headers", "X-Requested-With")
+		// hack local backend
+		if r.Method == http.MethodOptions {
+			for key, val := range config["headers"].(map[string]interface{}) {
+				w.Header().Set(key, val.(string))
+			}
+			w.WriteHeader(http.StatusOK)
+		}
 		p.ServeHTTP(w, r)
 	}
 }
@@ -97,7 +103,8 @@ func main() {
 	http.DefaultTransport.(*http.Transport).TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
 	// openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout server.key -out server.crt
 	log.Printf("start https server on %s", *httpsAddress)
-	if err := http.ListenAndServeTLS(*httpsAddress, filepath.Join(folder, "server.crt"), filepath.Join(folder, "server.key"), nil); err != nil {
+	crtConfig := config["cert"].(map[string]interface{})
+	if err := http.ListenAndServeTLS(*httpsAddress, filepath.Join(folder, crtConfig["crt"].(string)), filepath.Join(folder, crtConfig["key"].(string)), nil); err != nil {
 		log.Fatalln(err)
 	}
 }
