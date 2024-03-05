@@ -52,10 +52,10 @@ func Register(p *httputil.ReverseProxy) func(http.ResponseWriter, *http.Request)
 			log.Printf("request %s %s%s", r.Method, r.RemoteAddr, r.RequestURI)
 		}
 		// hack local backend
+		for key, val := range config["headers"].(map[string]interface{}) {
+			w.Header().Set(key, val.(string))
+		}
 		if r.Method == http.MethodOptions {
-			for key, val := range config["headers"].(map[string]interface{}) {
-				w.Header().Set(key, val.(string))
-			}
 			w.WriteHeader(http.StatusOK)
 		}
 		p.ServeHTTP(w, r)
